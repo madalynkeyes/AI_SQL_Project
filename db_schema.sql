@@ -1,14 +1,14 @@
-CREATE TABLE ward (
+CREATE TABLE IF NOT EXISTS ward (
     ward_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
-) ENGINE = InnoDB;
+);
 
-CREATE TABLE area (
+CREATE TABLE IF NOT EXISTS area (
     area_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 ) ENGINE = InnoDB;
 
-CREATE TABLE area_ward (
+CREATE TABLE IF NOT EXISTS area_ward (
     area_id INT NOT NULL,
     ward_id INT NOT NULL,
     PRIMARY KEY (area_id, ward_id),
@@ -16,13 +16,13 @@ CREATE TABLE area_ward (
     FOREIGN KEY (ward_id) REFERENCES ward(ward_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE spoken_language (
+CREATE TABLE IF NOT EXISTS spoken_language (
     language_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE
 ) ENGINE = InnoDB;
 
 -- Addresses can be shared by multiple people.
-CREATE TABLE address (
+CREATE TABLE IF NOT EXISTS address (
     address_id INT AUTO_INCREMENT PRIMARY KEY,
     ward_id INT NOT NULL,
     street VARCHAR(255) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE address (
 ) ENGINE = InnoDB;
 
 -- Person is shared by friends and members.
-CREATE TABLE person (
+CREATE TABLE IF NOT EXISTS person (
     person_id INT AUTO_INCREMENT PRIMARY KEY,
     address_id INT,
     language_id INT,
@@ -47,7 +47,7 @@ CREATE TABLE person (
     INDEX idx_person_address (address_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE friend_profile (
+CREATE TABLE IF NOT EXISTS friend_profile (
     person_id INT PRIMARY KEY,
     area_id INT,
     teaching_started_on DATE,
@@ -68,13 +68,13 @@ CREATE TABLE friend_profile (
     INDEX idx_friend_status (current_status)
 ) ENGINE = InnoDB;
 
-CREATE TABLE member_profile (
+CREATE TABLE IF NOT EXISTS member_profile (
     person_id INT PRIMARY KEY,
     FOREIGN KEY (person_id) REFERENCES person(person_id)
 ) ENGINE = InnoDB;
 
 -- Store each family relationship once.
-CREATE TABLE person_relationship (
+CREATE TABLE IF NOT EXISTS person_relationship (
     person_id INT NOT NULL,
     related_person_id INT NOT NULL,
     relationship_type VARCHAR(100) NOT NULL,
@@ -85,22 +85,22 @@ CREATE TABLE person_relationship (
 ) ENGINE = InnoDB;
 
 -- Missionaries and current companionship assignments.
-CREATE TABLE zone (
+CREATE TABLE IF NOT EXISTS zone (
     zone_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 ) ENGINE = InnoDB;
 
-CREATE TABLE missionary (
+CREATE TABLE IF NOT EXISTS missionary (
     missionary_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 ) ENGINE = InnoDB;
 
-CREATE TABLE companionship (
+CREATE TABLE IF NOT EXISTS companionship (
     companionship_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255)
 ) ENGINE = InnoDB;
 
-CREATE TABLE companionship_member (
+CREATE TABLE IF NOT EXISTS companionship_member (
     companionship_id INT NOT NULL,
     missionary_id INT NOT NULL UNIQUE,
     PRIMARY KEY (companionship_id, missionary_id),
@@ -111,7 +111,7 @@ CREATE TABLE companionship_member (
 ) ENGINE = InnoDB;
 
 -- One current area and zone per companionship.
-CREATE TABLE companionship_assignment (
+CREATE TABLE IF NOT EXISTS companionship_assignment (
     companionship_id INT PRIMARY KEY,
     area_id INT NOT NULL,
     zone_id INT NOT NULL,
@@ -122,20 +122,20 @@ CREATE TABLE companionship_assignment (
 ) ENGINE = InnoDB;
 
 -- Lesson and commitment catalogs.
-CREATE TABLE lesson_catalog (
+CREATE TABLE IF NOT EXISTS lesson_catalog (
     lesson_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     is_custom BOOLEAN NOT NULL DEFAULT FALSE,
     required_for_baptism BOOLEAN NOT NULL DEFAULT FALSE
 ) ENGINE = InnoDB;
 
-CREATE TABLE principle_catalog (
+CREATE TABLE IF NOT EXISTS principle_catalog (
     principle_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     is_custom BOOLEAN NOT NULL DEFAULT FALSE
 ) ENGINE = InnoDB;
 
-CREATE TABLE commitment_catalog (
+CREATE TABLE IF NOT EXISTS commitment_catalog (
     commitment_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     is_custom BOOLEAN NOT NULL DEFAULT FALSE,
@@ -143,7 +143,7 @@ CREATE TABLE commitment_catalog (
 ) ENGINE = InnoDB;
 
 -- Keep canceled and rescheduled appointments as rows.
-CREATE TABLE lesson_appointment (
+CREATE TABLE IF NOT EXISTS lesson_appointment (
     appointment_id INT AUTO_INCREMENT PRIMARY KEY,
     scheduled_at DATETIME NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
@@ -163,7 +163,7 @@ CREATE TABLE lesson_appointment (
     INDEX idx_appointment_status (status)
 ) ENGINE = InnoDB;
 
-CREATE TABLE appointment_friend (
+CREATE TABLE IF NOT EXISTS appointment_friend (
     appointment_id INT NOT NULL,
     friend_id INT NOT NULL,
     PRIMARY KEY (appointment_id, friend_id),
@@ -173,7 +173,7 @@ CREATE TABLE appointment_friend (
         REFERENCES friend_profile(person_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE appointment_member (
+CREATE TABLE IF NOT EXISTS appointment_member (
     appointment_id INT NOT NULL,
     member_id INT NOT NULL,
     PRIMARY KEY (appointment_id, member_id),
@@ -184,7 +184,7 @@ CREATE TABLE appointment_member (
 ) ENGINE = InnoDB;
 
 -- Any contact event: lesson, visit, call, and so on.
-CREATE TABLE interaction (
+CREATE TABLE IF NOT EXISTS interaction (
     interaction_id INT AUTO_INCREMENT PRIMARY KEY,
     occurred_at DATETIME NOT NULL,
     interaction_type VARCHAR(100) NOT NULL,
@@ -192,7 +192,7 @@ CREATE TABLE interaction (
     INDEX idx_interaction_occurred_at (occurred_at)
 ) ENGINE = InnoDB;
 
-CREATE TABLE interaction_friend (
+CREATE TABLE IF NOT EXISTS interaction_friend (
     interaction_id INT NOT NULL,
     friend_id INT NOT NULL,
     PRIMARY KEY (interaction_id, friend_id),
@@ -200,7 +200,7 @@ CREATE TABLE interaction_friend (
     FOREIGN KEY (friend_id) REFERENCES friend_profile(person_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE interaction_member (
+CREATE TABLE IF NOT EXISTS interaction_member (
     interaction_id INT NOT NULL,
     member_id INT NOT NULL,
     PRIMARY KEY (interaction_id, member_id),
@@ -209,7 +209,7 @@ CREATE TABLE interaction_member (
 ) ENGINE = InnoDB;
 
 -- A completed lesson can link to its appointment and interaction.
-CREATE TABLE lesson_session (
+CREATE TABLE IF NOT EXISTS lesson_session (
     session_id INT AUTO_INCREMENT PRIMARY KEY,
     appointment_id INT UNIQUE,
     interaction_id INT UNIQUE,
@@ -223,7 +223,7 @@ CREATE TABLE lesson_session (
     INDEX idx_session_actual_at (actual_at)
 ) ENGINE = InnoDB;
 
-CREATE TABLE session_friend (
+CREATE TABLE IF NOT EXISTS session_friend (
     session_id INT NOT NULL,
     friend_id INT NOT NULL,
     PRIMARY KEY (session_id, friend_id),
@@ -231,7 +231,7 @@ CREATE TABLE session_friend (
     FOREIGN KEY (friend_id) REFERENCES friend_profile(person_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE session_member (
+CREATE TABLE IF NOT EXISTS session_member (
     session_id INT NOT NULL,
     member_id INT NOT NULL,
     PRIMARY KEY (session_id, member_id),
@@ -239,7 +239,7 @@ CREATE TABLE session_member (
     FOREIGN KEY (member_id) REFERENCES member_profile(person_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE session_lesson (
+CREATE TABLE IF NOT EXISTS session_lesson (
     session_id INT NOT NULL,
     lesson_id INT NOT NULL,
     PRIMARY KEY (session_id, lesson_id),
@@ -247,7 +247,7 @@ CREATE TABLE session_lesson (
     FOREIGN KEY (lesson_id) REFERENCES lesson_catalog(lesson_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE session_principle (
+CREATE TABLE IF NOT EXISTS session_principle (
     session_id INT NOT NULL,
     principle_id INT NOT NULL,
     PRIMARY KEY (session_id, principle_id),
@@ -256,7 +256,7 @@ CREATE TABLE session_principle (
 ) ENGINE = InnoDB;
 
 -- Track lesson completion for each friend.
-CREATE TABLE friend_lesson_completion (
+CREATE TABLE IF NOT EXISTS friend_lesson_completion (
     friend_id INT NOT NULL,
     lesson_id INT NOT NULL,
     session_id INT,
@@ -268,7 +268,7 @@ CREATE TABLE friend_lesson_completion (
 ) ENGINE = InnoDB;
 
 -- One row per commitment extended to one friend.
-CREATE TABLE friend_commitment (
+CREATE TABLE IF NOT EXISTS friend_commitment (
     commitment_instance_id INT AUTO_INCREMENT PRIMARY KEY,
     friend_id INT NOT NULL,
     commitment_id INT NOT NULL,
@@ -291,7 +291,7 @@ CREATE TABLE friend_commitment (
 ) ENGINE = InnoDB;
 
 -- Referrals received by friends, optionally attributed to a member.
-CREATE TABLE referral (
+CREATE TABLE IF NOT EXISTS referral (
     referral_id INT AUTO_INCREMENT PRIMARY KEY,
     referred_friend_id INT NOT NULL,
     referring_member_id INT,
@@ -305,7 +305,7 @@ CREATE TABLE referral (
 ) ENGINE = InnoDB;
 
 -- Current baptism date and completed ordinance details for each friend.
-CREATE TABLE friend_baptism (
+CREATE TABLE IF NOT EXISTS friend_baptism (
     friend_id INT PRIMARY KEY,
     date_set DATE,
     scheduled_date DATE,
