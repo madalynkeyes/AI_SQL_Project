@@ -1,3 +1,4 @@
+from errno import errorcode
 import re
 
 import mysql.connector
@@ -8,6 +9,17 @@ load_dotenv()
 
 def get_db_connection():
     try:
+        # First connect without database to create it if needed
+        temp_conn = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT", 3306)
+        )
+        temp_conn.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {os.getenv('DB_NAME')}")
+        temp_conn.close()
+
+        # now connect to the pmg database
         conn=mysql.connector.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
@@ -15,7 +27,7 @@ def get_db_connection():
             password=os.getenv("DB_PASSWORD"),
             database=os.getenv("DB_NAME")
         )
-        conn.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {os.getenv('DB_NAME')}")
+    
         if conn.is_connected():
             print("Connected to MySQL PMG Database")
             return conn
@@ -38,14 +50,19 @@ def create_schema(conn):
                 table_name = clean_statement
             try:
                 cursor.execute(clean_statement)
-                print(f"Added table:{table_name}")
+                if cursor.rowcount==1:
+                    print(f"Added table:{table_name}")
             except mysql.connector.Error as err:
                 print(f"Error executing statement: {clean_statement}\nError: {err}")
     conn.commit()
     cursor.close()
     print("Database schema created successfully.")
 
+
 def import_db_data(conn):
+    """
+    Imports data from db_data.sql file, grabs the insert queries and executes them. 
+    """
     with open('db_data.sql','r') as f:
         insert_data_queries = f.read().split(';')
     cursor = conn.cursor()
@@ -56,7 +73,8 @@ def import_db_data(conn):
                 try:
                     cursor.execute(clean_statement)
                 except mysql.connector.Error as err:
-                    print(f"Error executing statement: {clean_statement}\nError: {err}")
-    print(f"Inserted {cursor.rowcount} rows into the database.")
+                    if err.errno !=1062:
+                        print(f"Error executing statement: {clean_statement}\nError: {err}")
     conn.commit()
+    print(f"Inserted data into the database successfully.")
     cursor.close()
