@@ -50,8 +50,6 @@ You ask a question in plain English, and Google Gemini writes a read-only MySQL 
 
 ## Database schema
 
-![Schema](schema.png)
-
 ```mermaid
 erDiagram
     ward ||--o{ area_ward : ""

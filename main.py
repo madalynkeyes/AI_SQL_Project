@@ -6,6 +6,68 @@ from google import genai
 from google.genai.errors import ServerError
 import os
 
+# Which prompting strategy to test: "zero_shot", "single_domain", or "cross_domain".
+PROMPT_STRATEGY = "cross_domain"
+
+# Single-domain: example question/SQL pairs written against this same PMG database.
+SINGLE_DOMAIN_EXAMPLES = """
+Examples:
+
+Question: Which appointments is Leo Martinez in, and what is the status of each?
+SQL:
+SELECT la.appointment_id, la.scheduled_at, la.status
+FROM person p
+JOIN appointment_friend af ON p.person_id = af.friend_id
+JOIN lesson_appointment la ON af.appointment_id = la.appointment_id
+WHERE p.first_name = 'Leo' AND p.last_name = 'Martinez';
+
+Question: Which members attended lessons with Leo Martinez?
+SQL:
+SELECT DISTINCT m.first_name, m.last_name, ls.actual_at
+FROM person f
+JOIN session_friend sf ON f.person_id = sf.friend_id
+JOIN lesson_session ls ON sf.session_id = ls.session_id
+JOIN session_member sm ON ls.session_id = sm.session_id
+JOIN person m ON sm.member_id = m.person_id
+WHERE f.first_name = 'Leo' AND f.last_name = 'Martinez';
+"""
+
+# Cross-domain: example question/SQL pairs from a different (school) database.
+CROSS_DOMAIN_EXAMPLES = """
+Examples from a different database (do not use these tables for PMG questions):
+
+Schema:
+student(student_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100))
+teacher(teacher_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100))
+class_meeting(meeting_id INT PRIMARY KEY, scheduled_at DATETIME, status VARCHAR(20))
+meeting_student(meeting_id INT FOREIGN KEY -> class_meeting.meeting_id, student_id INT FOREIGN KEY -> student.student_id)
+meeting_teacher(meeting_id INT FOREIGN KEY -> class_meeting.meeting_id, teacher_id INT FOREIGN KEY -> teacher.teacher_id)
+
+Question: Which class meetings is Ana Lopez in, and what is the status of each?
+SQL:
+SELECT cm.meeting_id, cm.scheduled_at, cm.status
+FROM student s
+JOIN meeting_student ms ON s.student_id = ms.student_id
+JOIN class_meeting cm ON ms.meeting_id = cm.meeting_id
+WHERE s.first_name = 'Ana' AND s.last_name = 'Lopez';
+
+Question: Which teachers have taught Ana Lopez?
+SQL:
+SELECT DISTINCT t.first_name, t.last_name
+FROM student s
+JOIN meeting_student ms ON s.student_id = ms.student_id
+JOIN meeting_teacher mt ON ms.meeting_id = mt.meeting_id
+JOIN teacher t ON mt.teacher_id = t.teacher_id
+WHERE s.first_name = 'Ana' AND s.last_name = 'Lopez';
+"""
+
+def get_examples():
+    if PROMPT_STRATEGY == "single_domain":
+        return SINGLE_DOMAIN_EXAMPLES
+    if PROMPT_STRATEGY == "cross_domain":
+        return CROSS_DOMAIN_EXAMPLES
+    return ""
+
 def setup_db():
     try:
         conn = get_db_connection()
@@ -78,7 +140,7 @@ def main():
     print("Connecting to Gemini API...")
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     chat = client.chats.create(model="gemini-3.1-flash-lite")
-    print("Connected to Gemini. Giving Gemini PMG Schema...")
+    print(f"Connected to Gemini. Giving Gemini PMG Schema ({PROMPT_STRATEGY})...")
     # Send the schema once when this chat starts.
     try:
         chat.send_message(f"""
@@ -92,39 +154,41 @@ def main():
         Business rule:
         Actively progressing means a completed lesson in the last 7 days
         or a commitment kept in the last 7 days.
+        {get_examples()}
         """)
+        while True:
+            question = input("Ask about your database (or type 'quit'): ").strip()
+            if question.lower() == "quit":
+                break
+            response = chat.send_message(question)
+            print("-----------------------------------------")
+            print(response.text)
+            print("-----------------------------------------")
+            confirmation = input("Would you like to execute this query? (Y/N): ").strip().lower()
+            if confirmation == 'y':
+                sql_query = extract_sql(response.text)
+                cursor.execute(sql_query)
+                result = cursor.fetchall()
+                # print(f"SQL Result: {result}")
+                interpreted = chat.send_message(f"""This is the result that was given from that query. 
+                What does this result mean? For example,
+                if I had asked "How many friends do I have?" and I got "[(3,)]", I would return the 
+                interpreted message as "You have 3 friends."
+                Result: {result}
+                """)
+                print(interpreted.text)
+                # return True
+            elif confirmation == 'n':
+                print("We won't execute this query.")
+                # return False
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
     except ServerError as e:
+        print("*************************")
         print("Server Error Encountered.")
         print(f"Status Code: {e.code}")         # e.g., 500
-        print(f"Message:     {e.message}")      # Error description from the server
-
-    while True:
-        question = input("Ask about your database (or type 'quit'): ").strip()
-        if question.lower() == "quit":
-            break
-
-        response = chat.send_message(question)
-        print("-----------------------------------------")
-        print(response.text)
-        print("-----------------------------------------")
-        confirmation = input("Would you like to execute this query? (Y/N): ").strip().lower()
-        if confirmation == 'y':
-            sql_query = extract_sql(response.text)
-            cursor.execute(sql_query)
-            result = cursor.fetchall()
-            interpreted = chat.send_message(f"""This is the result that was given from that query. 
-            What does this result mean? For example,
-            if I had asked "How many friends do I have?" and I got "[(3,)]", I would return the 
-            interpreted message as "You have 3 friends."
-            Result: {result}
-            """)
-            print(interpreted.text)
-            # return True
-        elif confirmation == 'n':
-            print("We won't execute this query.")
-            # return False
-        else:
-            print("Invalid input. Please enter 'y' or 'n'.")
+        print(f"Message:{e.message}")      # Error description from the server
+        print("*************************")
 
     cursor.close()
     connection.close()
